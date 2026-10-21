@@ -15,7 +15,7 @@
     {"icon": "email", "label": "Email", "url": "mailto:nya@nyamean.com"}
   ],
   "links_before_shows": [
-    {"title": "📍 Show Alerts (Get notified for next show)", "url": "http://eepurl.com/iMTJto"}
+    {"title": "📍 Show Alerts (Get notified for next show)", "url": "https://eepurl.com/iMTJto"}
   ],
   "tour_page": {"title": "All tour dates & info", "url": "https://www.nyamean.com/shows"},
   "links_after_shows": [
@@ -26,7 +26,7 @@
     {"title": "Watch Full Third Culture Talk Podcast on Youtube", "url": "https://www.youtube.com/@thirdculturetalkpod"},
     {"title": "Listen to Third Culture Talk Podcast on Spotify", "url": "https://open.spotify.com/show/2CH54ZlrsDXlHv3iBUg918"},
     {"title": "Listen to Third Culture Talk Podcast on Apple", "url": "https://podcasts.apple.com/de/podcast/third-culture-talk-podcast/id1695048091"},
-    {"title": "Support Third Culture Talk Podcast", "url": "http://buymeacoffee.com/thirdculturepod"}
+    {"title": "Support Third Culture Talk Podcast", "url": "https://buymeacoffee.com/thirdculturepod"}
   ],
   "solo_series_prefix": "american-ish-immigrant",
   "exclude_event_ids": [190615],
