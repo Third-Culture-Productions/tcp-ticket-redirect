@@ -66,17 +66,20 @@ PAGE_TEMPLATE = """<!doctype html>
 <meta property="og:url" content="{site_url}">
 <link rel="canonical" href="{site_url}">
 <link rel="icon" href="{avatar}">
+<link rel="preload" href="assets/oswald-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/oswald-500.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/oswald-600.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 @font-face {{ font-family: "Oswald"; font-weight: 400; font-display: swap; src: url(assets/oswald-400.woff2) format("woff2"); }}
 @font-face {{ font-family: "Oswald"; font-weight: 500; font-display: swap; src: url(assets/oswald-500.woff2) format("woff2"); }}
 @font-face {{ font-family: "Oswald"; font-weight: 600; font-display: swap; src: url(assets/oswald-600.woff2) format("woff2"); }}
 :root {{
-  --bg: #958e85;
+  --bg: #7b746c;  /* Linktree's #958e85, darkened for 4.5:1 white-text contrast */
   --text: #ffffff;
   --button: #f4e860;
   --button-text: #010101;
   --shadow: #000000;
-  --muted: rgba(255, 255, 255, 0.85);
+  --muted: #ffffff;
 }}
 * {{ box-sizing: border-box; }}
 body {{
