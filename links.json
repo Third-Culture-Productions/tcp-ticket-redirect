@@ -28,6 +28,7 @@
     {"title": "Listen to Third Culture Talk Podcast on Apple", "url": "https://podcasts.apple.com/de/podcast/third-culture-talk-podcast/id1695048091"},
     {"title": "Support Third Culture Talk Podcast", "url": "https://buymeacoffee.com/thirdculturepod"}
   ],
+  "umami_website_id": "fb3df75e-603c-4feb-a3f3-08a2cc8b2880",
   "solo_series_prefix": "american-ish-immigrant",
   "exclude_event_ids": [190615],
   "city_names": {"Koln": "Köln"},

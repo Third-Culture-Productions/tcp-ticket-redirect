@@ -69,6 +69,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="preload" href="assets/oswald-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/oswald-500.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/oswald-600.woff2" as="font" type="font/woff2" crossorigin>
+{analytics}
 <style>
 @font-face {{ font-family: "Oswald"; font-weight: 400; font-display: swap; src: url(assets/oswald-400.woff2) format("woff2"); }}
 @font-face {{ font-family: "Oswald"; font-weight: 500; font-display: swap; src: url(assets/oswald-500.woff2) format("woff2"); }}
@@ -212,8 +213,26 @@ def with_utm(url: str, campaign: str) -> str:
     return url + ("&" if "?" in url else "?") + query
 
 
-def link_item(url: str, inner_html: str) -> str:
-    return f'<li><a href="{html.escape(url)}">{inner_html}</a></li>'
+def event_attr(name: str) -> str:
+    """Umami click-event label (cookieless, see analytics_tag). Umami caps names at 50 chars."""
+    name = re.sub(r"^\W+", "", name).strip()[:50]  # drop leading emoji, e.g. '📍 Show Alerts'
+    return f' data-umami-event="{html.escape(name)}"'
+
+
+def link_item(url: str, inner_html: str, event_name: str) -> str:
+    return f'<li><a href="{html.escape(url)}"{event_attr(event_name)}>{inner_html}</a></li>'
+
+
+def analytics_tag(config: dict) -> str:
+    """Umami Cloud (EU, Hobby plan): no cookies or device storage, so no consent banner.
+    data-domains limits counting to the live site, so local previews don't pollute stats."""
+    website_id = config.get("umami_website_id")
+    if not website_id:
+        return ""
+    return (
+        '<script defer src="https://cloud.umami.is/script.js" '
+        f'data-website-id="{html.escape(website_id)}" data-domains="go.nyamean.com"></script>'
+    )
 
 
 def render_show(event: dict, config: dict) -> str:
@@ -228,7 +247,7 @@ def render_show(event: dict, config: dict) -> str:
         f'<span class="show-date">{html.escape(date_label)} · {html.escape(city)}{badge}</span>'
         f'<span class="show-meta">{html.escape(meta)}</span>'
     )
-    return link_item(with_utm(event["url"], campaign), inner)
+    return link_item(with_utm(event["url"], campaign), inner, f"Show: {city} {date_label.split(' ', 1)[1]}")
 
 
 def render_links(items: list[dict]) -> str:
@@ -247,7 +266,7 @@ def render_links(items: list[dict]) -> str:
             out.append('<ul class="links">')
             open_list = True
         url = with_utm(item["url"], item["utm_campaign"]) if item.get("utm_campaign") else item["url"]
-        out.append(link_item(url, html.escape(item["title"])))
+        out.append(link_item(url, html.escape(item["title"]), item["title"]))
     if open_list:
         out.append("</ul>")
     return "\n".join(out)
@@ -258,7 +277,10 @@ def render_social(item: dict) -> str:
     svg = re.sub(r"<title>.*?</title>", "", svg)
     svg = svg.replace("<svg ", '<svg aria-hidden="true" focusable="false" ', 1)
     label = html.escape(item["label"])
-    return f'<li><a href="{html.escape(item["url"])}" aria-label="{label}" title="{label}">{svg}</a></li>'
+    return (
+        f'<li><a href="{html.escape(item["url"])}" aria-label="{label}" title="{label}"'
+        f'{event_attr("Social: " + item["label"])}>{svg}</a></li>'
+    )
 
 
 def build_page(config: dict, events: list[dict], year: int) -> str:
@@ -274,9 +296,12 @@ def build_page(config: dict, events: list[dict], year: int) -> str:
         avatar=html.escape(profile["avatar"]),
         site_url=SITE_URL,
         socials="\n".join(render_social(s) for s in config["socials"]),
-        links_before="\n".join(link_item(i["url"], html.escape(i["title"])) for i in config["links_before_shows"]),
+        analytics=analytics_tag(config),
+        links_before="\n".join(
+            link_item(i["url"], html.escape(i["title"]), i["title"]) for i in config["links_before_shows"]
+        ),
         shows=shows,
-        tour_page=link_item(tour_page["url"], html.escape(tour_page["title"])),
+        tour_page=link_item(tour_page["url"], html.escape(tour_page["title"]), tour_page["title"]),
         links_after=render_links(config["links_after_shows"]),
         year=year,
     )
