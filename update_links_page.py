@@ -124,7 +124,8 @@ ul.links a:focus-visible, .socials a:focus-visible {{ outline: 3px solid var(--t
 .badge {{ display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--button-text); color: var(--button); font-size: 0.75rem; font-weight: 500; vertical-align: 2px; }}
 .empty {{ text-align: center; color: var(--muted); margin: 0 0 4px; }}
 ul.links.tour-page {{ margin-top: 28px; }}
-footer {{ text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 40px; }}
+footer {{ text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 40px; line-height: 1.8; }}
+footer a {{ color: var(--text); }}
 @media (prefers-reduced-motion: reduce) {{ ul.links a {{ transition: none; }} }}
 </style>
 </head>
@@ -147,7 +148,8 @@ footer {{ text-align: center; color: var(--muted); font-size: 0.8rem; margin-top
 {tour_page}
 </ul>
 {links_after}
-<footer>&copy; {year} Third Culture Productions</footer>
+<footer>&copy; {year} Third Culture Productions<br>
+<a href="https://www.nyamean.com/impressum">Impressum</a> · <a href="https://www.nyamean.com/datenschutzerklarung">Datenschutz</a></footer>
 </main>
 </body>
 </html>
