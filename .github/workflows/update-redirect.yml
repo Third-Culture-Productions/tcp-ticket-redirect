@@ -24,6 +24,9 @@ jobs:
       - name: Regenerate redirect pages
         run: python update_redirect.py
 
+      - name: Regenerate link-in-bio page
+        run: python update_links_page.py
+
       - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
@@ -32,12 +35,12 @@ jobs:
           # with no upcoming event writes no page, so skip files that don't
           # exist instead of letting `git add` abort the whole run. --porcelain
           # (not `git diff`) so a page's first, untracked version gets committed.
-          PAGES="wil.html wip.html"
+          PAGES="wil.html wip.html index.html"
           if [ -n "$(git status --porcelain -- $PAGES)" ]; then
             for f in $PAGES manifest.json; do
               if [ -f "$f" ]; then git add -- "$f"; fi
             done
-            git commit -m "Auto-update redirect targets"
+            git commit -m "Auto-update redirect targets and link page"
             git push
           else
             echo "No changes"
