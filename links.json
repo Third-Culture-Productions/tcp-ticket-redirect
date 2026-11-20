@@ -30,7 +30,7 @@
   ],
   "umami_website_id": "fb3df75e-603c-4feb-a3f3-08a2cc8b2880",
   "solo_series_prefix": "american-ish-immigrant",
-  "exclude_event_ids": [190615],
+  "exclude_event_ids": [],
   "city_names": {"Koln": "Köln"},
   "venue_names": {
     "Cultural Association of Russian-speakers ARIES (Yulia Vashchenko’s Theatre)": "Yulia Vashchenko’s Theatre",
