@@ -11,8 +11,10 @@ Show selection: /public/events?organizer=23136 (no token needed — this repo is
 public and must never hold credentials), then filtered client-side rather than
 trusting the query string — Fienta's public endpoint has silently ignored filter
 params before (series_id did, until 2026-08). Kept: organizer 23136, series id
-starting with links.json's solo_series_prefix (WIL/WIP/Comfort are excluded by
-design — Berlin gets one fixed link instead), public, on sale or sold out, dated
+starting with links.json's solo_series_prefix OR a title starting "American-ish
+Immigrant" (most S1 2027 events have no series slug — their series_id is just
+the event id, and they were silently dropped until 2026-11-23; WIL/WIP/Comfort
+are excluded by design — Berlin gets one fixed link instead), public, on sale or sold out, dated
 today or later in Berlin time, and not in exclude_event_ids (for a cut show
 whose Fienta event is still on sale — 190615 = Basel 2026-12-09).
 
@@ -49,6 +51,8 @@ SITE_URL = "https://go.nyamean.com/"
 BERLIN = ZoneInfo("Europe/Berlin")
 
 SHOWN_SALE_STATUSES = {"onSale", "soldOut"}
+# "American -ish Immigrant | ..." (S2 2026) and "American-ish Immigrant: Still Undecided | ..." (S1 2027)
+SOLO_TITLE_RE = re.compile(r"^\s*American\s*-\s*ish\s+Immigrant\b", re.IGNORECASE)
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -174,7 +178,8 @@ def fetch_solo_events(config: dict, today: str) -> list[dict]:
         reason = None
         if int(e.get("organizer_id") or 0) != ORGANIZER_ID:
             reason = f"organizer {e.get('organizer_id')}"
-        elif not str(e.get("series_id") or "").startswith(prefix):
+        elif not (str(e.get("series_id") or "").startswith(prefix)
+                  or SOLO_TITLE_RE.match(e.get("title") or "")):
             continue  # Berlin lineup shows — expected, not worth logging
         elif e.get("id") in excluded:
             reason = "in exclude_event_ids"
@@ -194,14 +199,23 @@ def fetch_solo_events(config: dict, today: str) -> list[dict]:
     return kept
 
 
-def city_of(event: dict, config: dict) -> str:
-    """'American -ish Immigrant | ... in Koln' -> 'Köln' (via links.json city_names)."""
+def city_and_note(event: dict, config: dict) -> tuple[str, str]:
+    """'... in Koln' -> ('Köln', ''); '... in Tallinn (Early Show)' -> ('Tallinn', 'Early Show').
+    City names go through links.json city_names; the note separates same-day double shows."""
     m = re.search(r"\bin ([^|]+)$", event.get("title") or "")
     if m:
         city = m.group(1).strip()
     else:
         city = str(event["series_id"]).removeprefix(config["solo_series_prefix"]).strip("-").replace("-", " ").title()
-    return config.get("city_names", {}).get(city, city)
+    note = ""
+    n = re.match(r"^(.*?)\s*\(([^)]+)\)$", city)
+    if n:
+        city, note = n.group(1).strip(), n.group(2).strip()
+    return config.get("city_names", {}).get(city, city), note
+
+
+def city_of(event: dict, config: dict) -> str:
+    return city_and_note(event, config)[0]
 
 
 def venue_of(event: dict, config: dict) -> str:
@@ -239,17 +253,18 @@ def analytics_tag(config: dict) -> str:
 
 def render_show(event: dict, config: dict) -> str:
     start = datetime.strptime(event["starts_at"], "%Y-%m-%d %H:%M:%S")
-    city = city_of(event, config)
+    city, note = city_and_note(event, config)
     date_label = f"{WEEKDAYS[start.weekday()]} {start.day} {MONTHS[start.month - 1]}"
     badge = '<span class="badge">Sold out</span>' if event.get("sale_status") == "soldOut" else ""
-    meta = " · ".join(p for p in (venue_of(event, config), start.strftime("%H:%M")) if p)
+    meta = " · ".join(p for p in (venue_of(event, config), start.strftime("%H:%M"), note) if p)
     ascii_city = unicodedata.normalize("NFKD", city).encode("ascii", "ignore").decode()  # Köln -> Koln
     campaign = f"{re.sub(r'[^a-z0-9]+', '', ascii_city.lower())}-{start.day}{MONTHS[start.month - 1].lower()}"
     inner = (
         f'<span class="show-date">{html.escape(date_label)} · {html.escape(city)}{badge}</span>'
         f'<span class="show-meta">{html.escape(meta)}</span>'
     )
-    return link_item(with_utm(event["url"], campaign), inner, f"Show: {city} {date_label.split(' ', 1)[1]}")
+    label = f"Show: {city} {date_label.split(' ', 1)[1]}" + (f" {note}" if note else "")
+    return link_item(with_utm(event["url"], campaign), inner, label)
 
 
 def render_links(items: list[dict]) -> str:
