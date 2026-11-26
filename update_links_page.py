@@ -2,10 +2,11 @@
 update_links_page.py — regenerate the link-in-bio page served at go.nyamean.com/.
 
 Replaces Linktree (whose API/MCP is Premium-only) with a static page that keeps
-its own show list current: upcoming solo-tour dates come straight from Fienta's
-public events endpoint, everything else (socials, podcast, Berlin, Show Alerts)
-from links.json. Runs daily from the same workflow as update_redirect.py, so a
-new Fienta event appears and a past one drops off without anyone touching it.
+its own show list current: upcoming solo-tour dates and Berlin lineup dates come
+straight from Fienta's public events endpoint, everything else (socials, podcast,
+Show Alerts, the WIL series link) from links.json. Runs daily from the same
+workflow as update_redirect.py, so a new Fienta event appears and a past one
+drops off without anyone touching it.
 
 Show selection: /public/events?organizer=23136 (no token needed — this repo is
 public and must never hold credentials), then filtered client-side rather than
@@ -13,10 +14,14 @@ trusting the query string — Fienta's public endpoint has silently ignored filt
 params before (series_id did, until 2026-08). Kept: organizer 23136, series id
 starting with links.json's solo_series_prefix OR a title starting "American-ish
 Immigrant" (most S1 2027 events have no series slug — their series_id is just
-the event id, and they were silently dropped until 2026-11-23; WIL/WIP/Comfort
-are excluded by design — Berlin gets one fixed link instead), public, on sale or sold out, dated
-today or later in Berlin time, and not in exclude_event_ids (for a cut show
-whose Fienta event is still on sale — 190615 = Basel 2026-12-09).
+the event id, and they were silently dropped until 2026-11-23), public, on sale
+or sold out, dated today or later in Berlin time, and not in exclude_event_ids
+(for a cut show whose Fienta event is still on sale — 190615 = Basel 2026-12-09).
+
+Berlin lineup shows (WIL/WIP/Comfort, links.json berlin_shows) pass the same
+filters and are listed by date under the "Berlin Shows" heading, where
+links.json's {"berlin_shows": true} marker sits (since 2026-11-26; before that
+Berlin had only the fixed WIL series link, which stays as the catch-all).
 
 Every Fienta link carries utm_source=golinks&utm_medium=btn so ticket sales from
 this page stay separable from Linktree's (utm_source=linktree) in the
@@ -160,8 +165,17 @@ footer a {{ color: var(--text); }}
 """
 
 
-def fetch_solo_events(config: dict, today: str) -> list[dict]:
-    """Return upcoming, on-sale solo-tour events for the organizer, soonest first."""
+def berlin_show_of(event: dict, config: dict) -> dict | None:
+    """The links.json berlin_shows entry this event belongs to (series slug or title), else None."""
+    series, title = str(event.get("series_id") or ""), (event.get("title") or "").lower()
+    for entry in config.get("berlin_shows", []):
+        if series.startswith(entry["series_prefix"]) or title.startswith(entry["title_prefix"].lower()):
+            return entry
+    return None
+
+
+def fetch_events(config: dict, today: str) -> tuple[list[dict], list[dict]]:
+    """Return (solo-tour, Berlin lineup) upcoming on-sale events for the organizer, soonest first."""
     resp = requests.get(
         f"{FIENTA_BASE}/public/events",
         params={"organizer": ORGANIZER_ID, "per_page": 200},
@@ -173,14 +187,16 @@ def fetch_solo_events(config: dict, today: str) -> list[dict]:
 
     prefix = config["solo_series_prefix"]
     excluded = set(config.get("exclude_event_ids", []))
-    kept = []
+    solo, berlin = [], []
     for e in events:
+        is_solo = (str(e.get("series_id") or "").startswith(prefix)
+                   or bool(SOLO_TITLE_RE.match(e.get("title") or "")))
+        is_berlin = not is_solo and berlin_show_of(e, config) is not None
         reason = None
         if int(e.get("organizer_id") or 0) != ORGANIZER_ID:
             reason = f"organizer {e.get('organizer_id')}"
-        elif not (str(e.get("series_id") or "").startswith(prefix)
-                  or SOLO_TITLE_RE.match(e.get("title") or "")):
-            continue  # Berlin lineup shows — expected, not worth logging
+        elif not (is_solo or is_berlin):
+            reason = "neither a solo show nor a links.json berlin_shows series"
         elif e.get("id") in excluded:
             reason = "in exclude_event_ids"
         elif not e.get("is_public", True):
@@ -194,9 +210,10 @@ def fetch_solo_events(config: dict, today: str) -> list[dict]:
         if reason:
             print(f"  skip {e.get('id')} {e.get('starts_at')} {e.get('title')!r}: {reason}")
             continue
-        kept.append(e)
-    kept.sort(key=lambda e: e["starts_at"])
-    return kept
+        (solo if is_solo else berlin).append(e)
+    solo.sort(key=lambda e: e["starts_at"])
+    berlin.sort(key=lambda e: e["starts_at"])
+    return solo, berlin
 
 
 def city_and_note(event: dict, config: dict) -> tuple[str, str]:
@@ -267,8 +284,25 @@ def render_show(event: dict, config: dict) -> str:
     return link_item(with_utm(event["url"], campaign), inner, label)
 
 
-def render_links(items: list[dict]) -> str:
-    """Render a links.json list; {"section": ...} entries start a new headed group."""
+def render_berlin_show(event: dict, config: dict) -> str:
+    """'Tue 8 Dec · What is Love?' / 'SaliGari Bar · 20:00'; campaign berlin-<code>-<d><mon>."""
+    entry = berlin_show_of(event, config)
+    start = datetime.strptime(event["starts_at"], "%Y-%m-%d %H:%M:%S")
+    day_month = f"{start.day} {MONTHS[start.month - 1]}"
+    date_label = f"{WEEKDAYS[start.weekday()]} {day_month}"
+    badge = '<span class="badge">Sold out</span>' if event.get("sale_status") == "soldOut" else ""
+    meta = " · ".join(p for p in (venue_of(event, config), start.strftime("%H:%M")) if p)
+    campaign = f"berlin-{entry['code']}-{start.day}{MONTHS[start.month - 1].lower()}"
+    inner = (
+        f'<span class="show-date">{html.escape(date_label)} · {html.escape(entry["name"])}{badge}</span>'
+        f'<span class="show-meta">{html.escape(meta)}</span>'
+    )
+    return link_item(with_utm(event["url"], campaign), inner, f"Berlin: {entry['name']} {day_month}")
+
+
+def render_links(items: list[dict], berlin_events: list[dict], config: dict) -> str:
+    """Render a links.json list; {"section": ...} entries start a new headed group and
+    {"berlin_shows": true} expands to the dated Berlin lineup shows (nothing if none)."""
     out: list[str] = []
     open_list = False
     for item in items:
@@ -282,6 +316,9 @@ def render_links(items: list[dict]) -> str:
         if not open_list:
             out.append('<ul class="links">')
             open_list = True
+        if item.get("berlin_shows"):
+            out.extend(render_berlin_show(e, config) for e in berlin_events)
+            continue
         url = with_utm(item["url"], item["utm_campaign"]) if item.get("utm_campaign") else item["url"]
         out.append(link_item(url, html.escape(item["title"]), item["title"]))
     if open_list:
@@ -300,7 +337,7 @@ def render_social(item: dict) -> str:
     )
 
 
-def build_page(config: dict, events: list[dict], year: int) -> str:
+def build_page(config: dict, events: list[dict], berlin_events: list[dict], year: int) -> str:
     profile = config["profile"]
     if events:
         shows = '<ul class="links">\n' + "\n".join(render_show(e, config) for e in events) + "\n</ul>"
@@ -319,7 +356,7 @@ def build_page(config: dict, events: list[dict], year: int) -> str:
         ),
         shows=shows,
         tour_page=link_item(tour_page["url"], html.escape(tour_page["title"]), tour_page["title"]),
-        links_after=render_links(config["links_after_shows"]),
+        links_after=render_links(config["links_after_shows"], berlin_events, config),
         year=year,
     )
 
@@ -334,19 +371,22 @@ def main() -> int:
 
     config = json.loads(CONFIG_PATH.read_text())
     now = datetime.now(BERLIN)
-    events = fetch_solo_events(config, now.date().isoformat())
+    events, berlin_events = fetch_events(config, now.date().isoformat())
     for e in events:
         print(f"  show {e['starts_at']} {city_of(e, config)} ({e['id']}, {e['sale_status']})")
+    for e in berlin_events:
+        print(f"  berlin {e['starts_at']} {berlin_show_of(e, config)['name']} ({e['id']}, {e['sale_status']})")
 
-    page_html = build_page(config, events, now.year)
+    page_html = build_page(config, events, berlin_events, now.year)
     out_path = OUT_DIR / "index.html"
     previous = out_path.read_text() if out_path.exists() else None
     if previous == page_html:
-        print(f"[links] unchanged ({len(events)} shows)")
+        print(f"[links] unchanged ({len(events)} shows, {len(berlin_events)} Berlin)")
     else:
         if not args.check_only:
             out_path.write_text(page_html)
-        print(f"[links] {len(events)} shows {'[would write]' if args.check_only else '[written]'}")
+        print(f"[links] {len(events)} shows, {len(berlin_events)} Berlin "
+              f"{'[would write]' if args.check_only else '[written]'}")
     return 0
 
 

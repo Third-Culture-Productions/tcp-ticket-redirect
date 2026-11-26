@@ -20,6 +20,7 @@
   "tour_page": {"title": "All tour dates & info", "url": "https://www.nyamean.com/shows"},
   "links_after_shows": [
     {"section": "Berlin Shows"},
+    {"berlin_shows": true},
     {"title": "All What is Love English Comedy Shows in Berlin", "url": "https://fienta.com/s/what-is-love", "utm_campaign": "berlin-wil"},
     {"section": "Podcast & Videos"},
     {"title": "Youtube @nyamean", "url": "https://www.youtube.com/@nyamean"},
@@ -30,6 +31,11 @@
   ],
   "umami_website_id": "fb3df75e-603c-4feb-a3f3-08a2cc8b2880",
   "solo_series_prefix": "american-ish-immigrant",
+  "berlin_shows": [
+    {"series_prefix": "what-is-love", "title_prefix": "What is Love", "name": "What is Love?", "code": "wil"},
+    {"series_prefix": "comedy-without-citizenship", "title_prefix": "Comedy Without Citizenship", "name": "Comedy Without Citizenship", "code": "wip"},
+    {"series_prefix": "comedy-comfort", "title_prefix": "Comedy Comfort", "name": "Comedy Comfort", "code": "comfort"}
+  ],
   "exclude_event_ids": [],
   "city_names": {"Koln": "Köln"},
   "venue_names": {
